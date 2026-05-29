@@ -1,0 +1,82 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Mis favoritos">
+  <section>
+    <h1>Mis favoritos</h1>
+    <div id="favoritos-lista"></div>
+  </section>
+</Layout>
+
+<style>
+  h1 { margin-bottom: 1.5rem; font-size: 1.6rem; }
+  #favoritos-lista { display: flex; flex-direction: column; gap: 1rem; }
+  .card {
+    display: flex; gap: 1rem;
+    background: white; border-radius: 10px;
+    padding: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    align-items: center;
+  }
+  .cover img { width: 60px; border-radius: 4px; }
+  .no-cover {
+    width: 60px; height: 85px; background: #eee;
+    border-radius: 4px; display: flex;
+    align-items: center; justify-content: center; font-size: 1.5rem;
+  }
+  .info { flex: 1; }
+  .info h3 { font-size: 1rem; margin-bottom: 0.2rem; }
+  .info .autor { font-size: 0.85rem; color: #666; }
+  .del-btn {
+    background: none; border: 1px solid #ccc;
+    padding: 0.3rem 0.8rem; border-radius: 6px;
+    cursor: pointer; font-size: 0.85rem; color: #999;
+  }
+  .del-btn:hover { background: #fff3f3; border-color: #e74c3c; color: #e74c3c; }
+  .msg { color: #666; text-align: center; padding: 2rem; }
+</style>
+
+<script>
+  import { getSession } from "../lib/auth";
+  import { getFavoritos, eliminarFavorito } from "../lib/db";
+
+  const session = await getSession();
+  if (!session) { window.location.href = "/login"; }
+
+  const lista = document.getElementById("favoritos-lista")!;
+
+  async function cargarFavoritos() {
+    lista.innerHTML = `<p class="msg">Cargando...</p>`;
+    const favs = await getFavoritos(session!.user.id);
+
+    if (!favs.length) {
+      lista.innerHTML = `<p class="msg">Todavía no guardaste ningún libro.</p>`;
+      return;
+    }
+
+    lista.innerHTML = favs.map(fav => `
+      <div class="card" data-id="${fav.id}" data-book="${fav.book_id}">
+        <div class="cover">
+          ${fav.thumbnail
+            ? `<img src="${fav.thumbnail}" alt="Tapa" />`
+            : `<div class="no-cover">📖</div>`}
+        </div>
+        <div class="info">
+          <h3>${fav.titulo}</h3>
+          <p class="autor">${fav.autores ?? "Autor desconocido"}</p>
+        </div>
+        <button class="del-btn" data-book="${fav.book_id}">✕ Quitar</button>
+      </div>
+    `).join("");
+
+    document.querySelectorAll(".del-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const bookId = (btn as HTMLElement).dataset.book!;
+        await eliminarFavorito(session!.user.id, bookId);
+        await cargarFavoritos();
+      });
+    });
+  }
+
+  cargarFavoritos();
+</script>
